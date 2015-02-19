@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Git update hook for protecting tags and branches.
+#
+# Copy it to hooks/update and make executable with
+# chmod 755 hooks/update
+
+set -u
+
+refname=$1
+oldrev=$2
+newrev=$3
+norev="0000000000000000000000000000000000000000"
+
+function dont_allow_delete_branch()
+{
+    local BRANCH_NAME=$1
+
+    [[ "$refname" = "refs/heads/$BRANCH_NAME" ]] || return 0
+
+    if [[ "$newrev" = "$norev" ]]; then
+        echo "Deleting branch $BRANCH_NAME is not allowed"
+        exit 1
+    fi
+}
+
+function dont_allow_non_fast_forward_commits_in_branch()
+{
+    local BRANCH_NAME=$1
+
+    [[ "$refname" = "refs/heads/$BRANCH_NAME" ]] || return 0
+
+    if [[ $(git merge-base "$newrev" "$oldrev") != "$oldrev" ]]; then
+        echo "Non-fast-forward commits to $BRANCH_NAME are not allowed"
+        exit 1
+    fi
+}
+
+function dont_allow_delete_or_move_tags()
+{
+    [[ "${refname:0:10}" = "refs/tags/" ]] || return 0
+
+    if [[ "$newrev" = "$norev" ]]; then
+        echo "Deleting tags is not allowed"
+        exit 1
+    fi
+
+    if [[ "$oldrev" != "$norev" ]]; then
+        echo "Moving tags is not allowed"
+        exit 1
+    fi
+}
+
+dont_allow_delete_branch master
+dont_allow_non_fast_forward_commits_in_branch master
+dont_allow_delete_or_move_tags

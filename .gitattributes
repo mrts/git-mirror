@@ -1,0 +1,6 @@
+*	text=auto
+
+*.py            text eol=lf
+*.sh            text eol=lf
+*.config        text eol=lf
+*.shlib         text eol=lf
