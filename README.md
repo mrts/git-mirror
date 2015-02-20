@@ -42,13 +42,36 @@ Configuration is in `scripts/synchronize-git-mirror.config`, see comments there.
 
 ## GitLab
 
-If you set up a GitLab project repository with `scripts/setup-git-mirror.sh`,
-then you also need to link the hooks directory to the mirror to make GitLab
-integration work. In this case, the custom `post-receive` hook needs to be
-added to GitLab `custom_hooks` directory as follows:
+To setup a mirror repository in GitLab (Omnibus installation is assumed),
+proceed as follows:
 
-    cd /path/to/repositories/<group>/<project>.git
-    mkdir custom_hooks
-    mv hooks/post-receive custom_hooks
-    rm -r hooks
-    ln -s /opt/gitlab/embedded/service/gitlab-shell/hooks .
+1. Create the project in GitLab web interface and, if possible, import it with
+   the _Import existing repository by URL_ link (to get initial branches etc):
+
+2. _(Optional)_ If automatic import is not possible, import with GitLab shell:
+
+        su git
+        /opt/gitlab/embedded/service/gitlab-shell/bin/gitlab-projects \
+            rm-project <group>/<project>.git
+        /opt/gitlab/embedded/service/gitlab-shell/bin/gitlab-projects \
+            import-project <group>/<project>.git ssh://<origin>/<project>.git
+
+3. Setup mirroring with `scripts/setup-git-mirror.sh`:
+
+        cd /path/to/repositories/<group>
+        edit /path/to/scripts/synchronize-git-mirror.config
+        rm -rf <project>.git
+        /path/to/scripts/setup-git-mirror.sh
+
+4. Setup GitLab hooks, preserving the custom `post-receive` hook:
+
+        cd <project>.git
+        mkdir custom_hooks
+        mv hooks/post-receive custom_hooks
+        rm -r hooks
+        ln -s /opt/gitlab/embedded/service/gitlab-shell/hooks .
+
+5. **Unfortunately, this is not currently sufficient to get remote branches
+   into GitLab.** The problem is that `git remote update` does not trigger any
+   hooks, and thus GitLab is not notified about new tags and branches in the
+   repository.
