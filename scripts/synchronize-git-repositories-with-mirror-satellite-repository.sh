@@ -5,6 +5,7 @@
 # See ../README.md for details.
 
 TRIGGERED_BY=${1:-origin}
+REFS=${2:-all}
 
 set -u
 
@@ -41,14 +42,27 @@ function synchronize_from_to()
 {
 	local from=$1
 	local to=$2
+	local refs=$3
 
-	echo "Synchronizing $from -> $to" >> "$LOGFILE"
+	echo "Synchronizing $refs from $from to $to" >> "$LOGFILE"
+
+	if [[ "$refs" == "all" ]]
+	then
+		refs='--mirror'
+	else
+		tmp=()
+		for ref in $refs
+		do
+			tmp+=("+$ref:$ref")
+		done
+		refs=${tmp[*]}
+	fi
 
 	git --git-dir "$CONF_GITDIR" remote update --prune $from >> "$LOGFILE" 2>&1
 	check_status "git --git-dir $CONF_GITDIR remote update --prune $from" "$LOGFILE"
 
-	git --git-dir "$CONF_GITDIR" push --mirror --prune $to >> "$LOGFILE" 2>&1
-	check_status "git --git-dir $CONF_GITDIR push --mirror --prune $to" "$LOGFILE"
+	git --git-dir "$CONF_GITDIR" push --prune $to $refs >> "$LOGFILE" 2>&1
+	check_status "git --git-dir $CONF_GITDIR push --prune $to $refs" "$LOGFILE"
 
 	echo "Success" >> "$LOGFILE"
 }
@@ -58,7 +72,7 @@ echo "Triggered by $TRIGGERED_BY" >> "$LOGFILE"
 
 if [[ "$TRIGGERED_BY" == "origin" ]]
 then
-	synchronize_from_to origin "$CONF_OTHER_REPO"
+	synchronize_from_to origin "$CONF_OTHER_REPO" "$REFS"
 else
-	synchronize_from_to "$CONF_OTHER_REPO" origin
+	synchronize_from_to "$CONF_OTHER_REPO" origin "$REFS"
 fi
