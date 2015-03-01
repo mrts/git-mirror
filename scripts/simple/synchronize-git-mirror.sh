@@ -39,14 +39,14 @@ rotate_logs "$LOGFILE"
 
 function push_changes()
 {
-	echo "Pushing changes to $CONF_UPSTREAM_URL" >> "$LOGFILE"
+	echo "Pushing changes to $CONF_ORIGIN_URL" >> "$LOGFILE"
 	git --git-dir "$CONF_GITDIR" push --mirror --prune >> "$LOGFILE" 2>&1
 	check_status "git --git-dir $CONF_GITDIR push --mirror --prune" "$LOGFILE"
 }
 
 function fetch_changes()
 {
-	echo "Fetching changes from $CONF_UPSTREAM_URL" >> "$LOGFILE"
+	echo "Fetching changes from $CONF_ORIGIN_URL" >> "$LOGFILE"
 	git --git-dir "$CONF_GITDIR" remote update --prune >> "$LOGFILE" 2>&1
 	check_status "git --git-dir $CONF_GITDIR remote update --prune" "$LOGFILE"
 }

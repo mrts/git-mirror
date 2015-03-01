@@ -49,17 +49,6 @@ function check_status()
 	echo "----------------------------------------------" >> "$LOGFILE"
 }
 
-function check_failure()
-{
-	local THECMD="$1"
-	local LOGFILE="$2"
-
-	tail -6 "$LOGFILE" | grep 'error: git-svn died'
-	[[ $? = 0 ]] && error_exit "$THECMD (probably wrong SVN credentials)" "$LOGFILE"
-	tail -6 "$LOGFILE" | grep 'uthorization failed'
-	[[ $? = 0 ]] && error_exit "$THECMD (probably wrong SVN credentials)" "$LOGFILE"
-}
-
 function rotate_logs()
 {
 	local LOGFILE="$1"
@@ -102,7 +91,7 @@ function acquire_lock()
 		# lock succeeded
 
 		# remove $LOCKDIR on exit
-		trap 'release_lock "$LOCKDIR"' EXIT \
+		trap "release_lock \"$LOCKDIR\"" EXIT \
 			|| { echo 'trap exit failed' >&2; exit 1; }
 
 		# will trigger the EXIT trap above by `exit`

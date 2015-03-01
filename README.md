@@ -1,6 +1,7 @@
 # git-mirror
 
-Scripts for setting up and synchronizing two-way mirroring between Git repositories.
+Scripts for setting up and synchronizing two-way mirroring between Git
+repositories.
 
 ## `scripts/setup-git-mirror.sh`
 
@@ -25,7 +26,8 @@ in the remote repository.
 
 ## `scripts/synchronize-git-mirror.sh`
 
-Synchronizes the mirror that was previously set up with `scripts/setup-git-mirror.sh`.
+Synchronizes the mirror that was previously set up with
+`scripts/setup-git-mirror.sh`.
 
 This script will be run both from the mirror repository `post-receive` hook
 and `crontab`.
@@ -42,106 +44,107 @@ Configuration is in `scripts/synchronize-git-mirror.config`, see comments there.
 
 ## GitLab
 
-GitLab repositories that need two-way synchronization with an upstream repository
+GitLab repositories that need two-way synchronization with an origin repository
 need a different setup.
 
-As GitLab uses hooks to track changes in repositories, a separate satellite repository
-is needed for two-way mirroring that fetches from the origin repository and pushes
-to GitLab and vice-versa.
+As GitLab uses hooks to track changes in repositories, a separate satellite
+repository is needed for two-way mirroring that fetches from the origin
+repository and pushes to GitLab and vice-versa.
 
 In the following, GitLab Omnibus installation is assumed.
 
 ### Setup satellite repository for mirroring
 
-1. Login as the GitLab `git` user, generate SSH key:
+1. Login as the GitLab `git` user in the GitLab server, generate SSH key:
 
         sudo su git
         ssh-keygen
 
-2. Create a dedicated GitLab account for mirroring in GitLab web interface,
+2. Create a dedicated GitLab mirroring account in GitLab web interface,
    upload the SSH public key into the account profile.
 
 3. Create the mirror project in GitLab web interface, give _Master_ access to
    the mirroring account.
 
-4. Copy the SSH public key to upstream repository SSH authorized keys:
+4. Copy the SSH public key to origin repository SSH authorized keys:
 
         scp ~/.ssh/id_rsa.pub user@origin-repository-host:
         ssh user@origin-repository-host
         cat id_rsa.pub >> ~/.ssh/authorized_keys
         logout
 
-5. _(Optional)_ If origin repository username differs from `git`, setup SSH host alias:
+5. _(Optional)_ If origin repository username differs from `git`, setup SSH
+   host alias:
 
         cat >> ~/.ssh/config << EOT
-        Host gitmirror-origin
+        Host gitmirror-origin-host
         User user
-        HostName upstream-repository-host
+        HostName origin-repository-host
         EOT
 
 6. Assure SSH server accepts connections to `localhost` in GitLab server.
 
 7. Setup the mirroring tools workspace for `git` user and configure `git-mirror`:
 
-        mkdir ~/mirroring-tools
+        sudo mkdir /var/opt/gitlab/mirroring-tools
+        sudo chown git: /var/opt/gitlab/mirroring-tools
+        sudo su git
         cd ~/mirroring-tools
-        mkdir mirror-repo utils
+        mkdir utils
 
         cd utils
         git clone https://github.com/mrts/git-mirror.git
-        cd git-mirror
+        cd git-mirror/scripts/satellite
 
         # change the substituted values below according to your needs
-        sed -i 's#CONF_UPSTREAM_URL=.*#CONF_UPSTREAM_URL=origin-repository-host:git/repo.git#' \
-            scripts/synchronize-git-mirror.config
+        sed -i 's#CONF_ORIGIN_URL=.*#CONF_ORIGIN_URL=origin-repository-host:git/repo.git#' \
+            synchronize-git-repositories-with-satellite.config
         sed -i 's#CONF_OTHER_URL=.*#CONF_OTHER_URL=localhost:mirror/repo.git#' \
-            scripts/synchronize-git-mirror.config
+            synchronize-git-repositories-with-satellite.config
         sed -i 's#CONF_GITDIR=.*#CONF_GITDIR=/var/opt/gitlab/mirroring-tools/repo.git#' \
-            scripts/synchronize-git-mirror.config
+            synchronize-git-repositories-with-satellite.config
         sed -i 's#CONF_OTHER_GITDIR=.*#CONF_OTHER_GITDIR=/var/opt/gitlab/git-data/repositories/mirror/repo.git#' \
-            scripts/synchronize-git-mirror.config
+            synchronize-git-repositories-with-satellite.config
 
-8. Setup mirror, do initial import to GitLab repository, test two-way synchronization:
+8. Run the setup script:
 
-        source scripts/synchronize-git-mirror.config
+        ./setup-synchronize-git-repositories-with-satellite.sh
 
-        git clone --mirror $CONF_UPSTREAM_URL $CONF_GITDIR
-        cd $CONF_GITDIR
-        git config --unset remote.origin.mirror # can't push refs with mirror
+    * The setup script does the following:
 
-        git remote add --mirror $CONF_OTHER_REMOTE $CONF_OTHER_URL
-        git config --unset remote.$CONF_OTHER_REMOTE.mirror
+        1. Sets up the satellite repository with origin and GitLab remotes
+        2. Sets up the `post-receive` hook in GitLab repository to push changes
+        from GitLab to origin
+        3. Prints the line that should be added to `crontab` for running the
+        synchronization job.
 
-        # origin -> gitlab
-        git remote update --prune origin
-        git push --mirror --prune $CONF_OTHER_REMOTE
+    * Assure passwordless access works, no password propmts should appear
+    during setup.
 
-        # gitlab -> origin
-        git remote update --prune $CONF_OTHER_REMOTE
-        git push --mirror --prune origin
+9. Add the line that was printed in the end of setup scrip run to `crontab`:
 
-    * Assure passwordless access works, no password propmts should appear above.
+        sudo sh -o noglob -c 'echo "*/1 * * * *  git  ...path..." >> /etc/crontab'
 
-### Setup post-receive hook to push changes from GitLab to origin
+10. Test and examine logs.
 
-    # test synchronization from origin to gitlab
-    scripts/synchronize-git-repositories-with-mirror-satellite-repository.sh
-    # test synchronization from gitlab to origin
-    scripts/synchronize-git-repositories-with-mirror-satellite-repository.sh $CONF_OTHER_REMOTE
+    1. Verify that all branches are present and contain right commits in GitLab.
+    2. Create a merge request and merge it in GitLab, verify that merge is
+    mirrored to origin immediately.
+    3. Commit to any branch in origin, verify that change is mirrored in GitLab 
+    after cron has run.
+    4. Rewrite `master` history and delete `master` in GitLab, verify that this 
+    does *not* get through to origin and results in error in logs.
+    5. Delete and create any other branch in GitLab, verify that delete and
+    create is mirrored to origin immediately.
+    6. Delete and create branches in origin, verify that change is mirrored in
+    GitLab after cron has run.
 
-    mkdir $CONF_OTHER_GITDIR/custom_hooks
-    cp -a scripts/git-post-receive-hook-for-updating-satellite-repository \
-        $CONF_OTHER_GITDIR/custom_hooks/post-receive
+11. Rejoice :)!
 
-    sed -i "s#/path/to/git-mirror#`pwd`#" $CONF_OTHER_GITDIR/custom_hooks/post-receive
-    sed -i "s#other-remote#${CONF_OTHER_REMOTE}#" $CONF_OTHER_GITDIR/custom_hooks/post-receive
+### Caveats
 
-    # test the script
-    $CONF_OTHER_GITDIR/custom_hooks/post-receive
-
-### Setup cron job to push changes from origin to GitLab
-
-    echo '---'
-    echo 'Setup successful, now enable scheduled job with the following command:'
-    echo
-    echo "sudo sh -o noglob -c 'echo \"*/1 * * * *    git    `pwd`/scripts/synchronize-git-repositories-with-mirror-satellite-repository.sh\" >> /etc/crontab'"
+It seems that deleting and creating branches from the GitLab web UI does not
+trigger the `post-receive` hook in GitLab, so deleted branches will be
+resurrected during next update from origin. This problem has been filed as
+[bug #1156](https://gitlab.com/gitlab-org/gitlab-ce/issues/1156) in the GitLab
+issue tracker.

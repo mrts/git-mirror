@@ -27,7 +27,7 @@ function include_file()
 
 include_file "$CONFIGFILE"
 
-git clone --mirror $CONF_UPSTREAM_URL "$CONF_GITDIR"
+git clone --mirror $CONF_ORIGIN_URL "$CONF_GITDIR"
 
 pushd "$CONF_GITDIR"
 
@@ -36,6 +36,7 @@ chmod 755 hooks/post-receive
 
 popd
 
-echo "Mirror for ${CONF_UPSTREAM_URL} successfully set up in ${CONF_GITDIR}."
+echo "Mirror for ${CONF_ORIGIN_URL} successfully set up in ${CONF_GITDIR}."
 echo "Run the following next to add synchronize-git-mirror.sh to crontab:"
-echo "sudo sh -c 'echo \"*/$CONF_FREQUENCY * * * *    git    $SYNCHRONIZE_SCRIPT\" >> /etc/crontab'"
+
+echo "sudo sh -o noglob -c 'echo \"*/$CONF_FREQUENCY * * * *  git  $SYNCHRONIZE_SCRIPT\" >> /etc/crontab'"

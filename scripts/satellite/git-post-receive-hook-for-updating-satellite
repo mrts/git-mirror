@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Post-receive hook for pushing changes to origin
+
 norev="0000000000000000000000000000000000000000"
 
 REFS=()
@@ -15,4 +17,5 @@ do
     fi
 done
 
-/path/to/git-mirror/scripts/synchronize-git-repositories-with-mirror-satellite-repository.sh other-remote "${REFS[*]}"
+# see setup-synchronize-git-repositories-with-satellite.sh
+/path/to/sync-script other-remote "${REFS[*]}"

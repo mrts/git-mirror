@@ -12,8 +12,8 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_FULL_PATH="$SCRIPT_DIR/$(basename "$0" '.sh')"
 
-CONFIGFILE="$SCRIPT_DIR/synchronize-git-mirror.config"
-LIBFILE="$SCRIPT_DIR/synchronize-git-mirror.shlib"
+CONFIGFILE="${SCRIPT_FULL_PATH}.config"
+LIBFILE="$SCRIPT_DIR/../utils-lib.sh"
 
 LOGFILE="${SCRIPT_FULL_PATH}.log"
 LOCKDIR_BASE="${SCRIPT_FULL_PATH}.lock"
