@@ -18,6 +18,14 @@
 
 set -u
 
+function warn()
+{
+	local MESSAGE="$1"
+
+	echo "$MESSAGE" >> "$LOGFILE"
+	echo "$MESSAGE" >&2
+}
+
 function error_exit()
 {
 	local THECMD="$1"
@@ -110,7 +118,7 @@ function acquire_lock()
 		OTHERPID="$(cat "$PIDFILE" 2>/dev/null)"
 
 		if [[ $? != 0 ]]; then
-			# PID file does not exists - propably direcotry
+			# PID file does not exist - probably direcotry
 			# is being deleted
 			return 1
 		fi
@@ -140,6 +148,7 @@ function wait_for_lock()
 	#  - add ((i++)) into while body
 
 	while ! acquire_lock "$LOCKDIR"; do
+		warn "Waiting for lock '$LOCKDIR'"
 		sleep 1
 	done
 }

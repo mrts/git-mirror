@@ -16,7 +16,7 @@ CONFIGFILE="$SCRIPT_DIR/synchronize-git-mirror.config"
 LIBFILE="$SCRIPT_DIR/synchronize-git-mirror.shlib"
 
 LOGFILE="${SCRIPT_FULL_PATH}.log"
-LOCKDIR="${SCRIPT_FULL_PATH}.lock"
+LOCKDIR_BASE="${SCRIPT_FULL_PATH}.lock"
 
 function include_file()
 {
@@ -34,7 +34,25 @@ function include_file()
 include_file "$CONFIGFILE"
 include_file "$LIBFILE"
 
-wait_for_lock "$LOCKDIR"
+[[ "$TRIGGERED_BY" == "origin" ]] || [[ "$TRIGGERED_BY" == "$CONF_OTHER_REMOTE" ]] || {
+
+	warn "$0: expected first argument to be either 'origin' or '$CONF_OTHER_REMOTE', but got '$1'"
+	exit 1
+}
+
+ORIGIN_LOCK="${LOCKDIR_BASE}.origin"
+OTHER_REMOTE_LOCK="${LOCKDIR_BASE}.${CONF_OTHER_REMOTE}"
+
+if [[ "$TRIGGERED_BY" == "origin" ]]
+then
+	# synchronization triggered from other remote's post-receive hook
+	# still in progress, exit
+	[[ -d "$OTHER_REMOTE_LOCK" ]] && exit 0
+
+	wait_for_lock "$ORIGIN_LOCK"
+else
+	wait_for_lock "$OTHER_REMOTE_LOCK"
+fi
 
 rotate_logs "$LOGFILE"
 
@@ -49,13 +67,6 @@ function synchronize_from_to()
 	if [[ "$refs" == "all" ]]
 	then
 		refs='--mirror'
-	else
-		tmp=()
-		for ref in $refs
-		do
-			tmp+=("+$ref:$ref")
-		done
-		refs=${tmp[*]}
 	fi
 
 	git --git-dir "$CONF_GITDIR" remote update --prune $from >> "$LOGFILE" 2>&1
@@ -72,7 +83,7 @@ echo "Triggered by $TRIGGERED_BY" >> "$LOGFILE"
 
 if [[ "$TRIGGERED_BY" == "origin" ]]
 then
-	synchronize_from_to origin "$CONF_OTHER_REPO" "$REFS"
+	synchronize_from_to origin "$CONF_OTHER_REMOTE" "$REFS"
 else
-	synchronize_from_to "$CONF_OTHER_REPO" origin "$REFS"
+	synchronize_from_to "$CONF_OTHER_REMOTE" origin "$REFS"
 fi

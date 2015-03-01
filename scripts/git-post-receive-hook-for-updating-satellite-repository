@@ -1,0 +1,18 @@
+#!/bin/bash
+
+norev="0000000000000000000000000000000000000000"
+
+REFS=()
+while read oldrev newrev refname
+do
+    if [[ "$newrev" == "$norev" ]]
+    then
+        # branch deleted
+        REFS+=(":$refname")
+    else
+        # branch added or updated
+        REFS+=("+$refname:$refname")
+    fi
+done
+
+/path/to/git-mirror/scripts/synchronize-git-repositories-with-mirror-satellite-repository.sh other-remote "${REFS[*]}"
