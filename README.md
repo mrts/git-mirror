@@ -1,7 +1,7 @@
 # git-mirror
 
-Scripts for setting up and synchronizing two-way mirroring between Git
-repositories.
+Scripts for setting up and synchronizing **two-way** mirroring between Git
+repositories. There are instructions for one-way mirroring below as well.
 
 ## `scripts/setup-git-mirror.sh`
 
@@ -41,6 +41,53 @@ Synchronization logs are written to `scripts/synchronize-git-mirror.log*`.
 ## Configuration
 
 Configuration is in `scripts/synchronize-git-mirror.config`, see comments there.
+
+## One-way mirroring
+
+Simple one-way mirroring setup:
+
+    +------------+          +------------+           +------------+
+    |            |          |            |           |            |
+    | Source     |          | Mirror     |           | Target     |
+    | repository <-- pull --+ repository +-- push ---> repository |
+    |            |          |            |           |            |
+    +------------+          +------------+           +------------+
+
+Steps:
+
+1. Add system user, generate key, share the key with source repository owner:
+
+       sudo adduser --system gitmirror
+       sudo -u gitmirror ssh-keygen
+       sudo cat /home/gitmirror/.ssh/id_rsa.pub
+        
+2. Test that cloning works:
+
+       cd /tmp && sudo -u gitmirror git clone git@source-repository.com:example/example.git
+
+3. Create mirror repository:
+
+       sudo -u gitmirror mkdir example-mirror && cd example-mirror
+       sudo -u gitmirror git clone --mirror git@source-repository.com:example/example.git
+       cd example.git/
+       sudo -u gitmirror git remote add --mirror=push target git@target-repository.com:example/example-mirror.git
+
+4. Create synchronization script, test:
+
+       cat <<EOF > /tmp/mirror-example.sh
+       #!/bin/bash
+       cd /home/gitmirror/example-mirror/example.git/
+       git fetch --prune origin
+       git push --mirror target
+       EOF
+       chmod 755 /tmp/mirror-example.sh
+       sudo -u gitmirror cp -a /tmp/mirror-example.sh /home/gitmirror/example-mirror/mirror-example.sh
+       
+       sudo -u gitmirror /home/gitmirror/example-mirror/mirror-example.sh
+       
+5. Add synchronization script to `/etc/crontab` (with e.g. 30-minute interval):
+
+       */30 * * * *  gitmirror  /home/gitmirror/example-mirror/mirror-example.sh
 
 ## GitLab
 
